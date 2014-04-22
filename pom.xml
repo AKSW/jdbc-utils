@@ -12,6 +12,7 @@
         <connection>scm:git:git@github.com:AKSW/jdbc-utils.git</connection>
         <!-- developerConnection></developerConnection -->
         <!-- url>https://my-project.googlecode.com/svn</url -->
+    <tag>HEAD</tag>
   </scm>
 
     <properties>
