@@ -5,7 +5,7 @@
     <groupId>org.aksw.jdbc-utils</groupId>
     <artifactId>jdbc-utils-parent</artifactId>
     <packaging>pom</packaging>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.2-SNAPSHOT</version>
     <name>AKSW JDBC Utils parent</name>
 
     <scm>
