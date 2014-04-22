@@ -12,7 +12,7 @@
         <connection>scm:git:git@github.com:AKSW/jdbc-utils.git</connection>
         <!-- developerConnection></developerConnection -->
         <!-- url>https://my-project.googlecode.com/svn</url -->
-    </scm>
+  </scm>
 
     <properties>
         <!--  tell the compiler we can use 1.6 -->
