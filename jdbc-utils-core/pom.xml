@@ -5,13 +5,12 @@
 	<artifactId>jdbc-utils-core</artifactId>
 	<packaging>jar</packaging>
 
-	<name>AKSW Jdbc Utils - Core</name>
-	<url>http://github.org/AKSW/jdbc-utils</url>
+	<name>AKSW JDBC Utils - Core</name>
 
 	<parent>
 		<groupId>org.aksw.jdbc-utils</groupId>
 		<artifactId>jdbc-utils-parent</artifactId>
-		<version>0.0.2-SNAPSHOT</version>
+		<version>0.0.1-SNAPSHOT</version>
 	</parent>
 
 	<dependencies>
