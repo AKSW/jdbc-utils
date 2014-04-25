@@ -3,6 +3,7 @@ package org.aksw.jdbc_utils.core;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -10,12 +11,16 @@ import java.util.Set;
 
 import org.apache.commons.lang.StringEscapeUtils;
 
+import com.google.common.base.Joiner;
+
 
 
 public class Inserter {
 	private ColumnsReference target;
 	private Schema schema;
 	
+	// Somehow I regret using a linear array for storing tabular data
+	// it makes the code so convoluted for a bit of potential performance gain...
 	private List<Object> data = new ArrayList<Object>(); 
 	
 	
@@ -43,7 +48,7 @@ public class Inserter {
 
 		for(Object cell : cells) {
 			data.add(cell);
-		}		
+		}
 	}
 	
 	
@@ -56,22 +61,28 @@ public class Inserter {
 			return "'" + StringEscapeUtils.escapeSql("" + o) + "'";
 		}
 	}
+
+
+	public String composeValues(List<Object> cells, int columnWidth, int[] idMap, List<Integer> indexes) {
 	
-	public String composeCheckPart(List<Object> cells, int columnWidth, int[] idMap) {
-	
-		// TODO Only works with columnWidth 1
-		
-		int numRows = data.size() / columnWidth;
+		int numRows = indexes == null ? data.size() / columnWidth : indexes.size();
+
 		String idList = "";
 		for(int i = 0; i < numRows; ++i) {
 
-			if(i != 0) {
+		    int rowId = indexes == null ? i : indexes.get(i);
+		    
+			if(rowId != 0) {
 				idList += ", ";
 			}
 			
 			
+			if(columnWidth > 1) {
+			    idList += "(";
+			}
+			
 			for(int j = 0; j < idMap.length; ++j) {
-				int index = i * columnWidth + idMap[j];
+				int index = rowId * columnWidth + idMap[j];
 				Object cell = data.get(index);
 			
 				if(j != 0) {
@@ -81,13 +92,26 @@ public class Inserter {
 				idList += escapeSql("" + cell);
 			}
 
+			if(columnWidth > 1) {
+                idList += ")";
+            }
+
 		}
 
 		return idList;
 	}
 	
-	public Set<Integer> getBlacklistedRows(List<Object> cells, int columnWidth, int[] idMap, Set<Object> ids) {
-		Set<Integer> result = new HashSet<Integer>();
+	public List<Integer> getBlacklistedRows(List<Object> cells, int columnWidth, int[] idMap, Set<Object> ids) {
+	    
+	    /*
+	    List<Class<?>> types = new ArrayList<Class<?>>(ids.size());
+	    for(Object id : ids) {
+	        types.add(id == null ? null : id.getClass());
+	    }
+	    System.out.println(types);
+	    */
+	    
+		List<Integer> result = new ArrayList<Integer>();
 		
 		int numRows = data.size() / columnWidth;
 		for(int i = 0; i < numRows; ++i) {
@@ -149,8 +173,12 @@ public class Inserter {
 		int columnWidth = target.getColumnNames().size();
 		
 		Set<Object> duplicateIds = new HashSet<Object>();
-		Set<Integer> blacklistedRows = Collections.emptySet();
+		//List<Integer> blacklistedRows = Collections.emptySet();
+
 		
+        String targetColumnsStr = "\"" + Joiner.on("\", \"").join(target.getColumnNames()) + "\"";
+
+        
 		if(targetPk != null) {
 			List<String> idColumns = targetPk.getSource().getColumnNames();			
 
@@ -160,7 +188,7 @@ public class Inserter {
 			int idMap[] = new int[d];
 			
 			for(int i = 0; i < d; ++i) {
-				String idColumn = idColumns.get(0);
+				String idColumn = idColumns.get(i);
 				int j = target.getColumnNames().indexOf(idColumn);
 				
 				if(j < 0) {
@@ -171,46 +199,67 @@ public class Inserter {
 			}
 
 			
+            String idColumnsStr = "\"" + Joiner.on("\", \"").join(idColumns) + "\"";
+            
+            
+            String inColumnsStr = columnWidth > 1 ? "(" + idColumnsStr + ")" : idColumnsStr;
 			
-			if(d != 1) {
-				throw new RuntimeException("Only singe column primary keys supported - Sorry :(");
-			}
+//			if(d != 1) {
+//				throw new RuntimeException("Only single column primary keys supported right now - Sorry :(");
+//			}
 			
 			
-			String idColumn = idColumns.get(0);
+//			String idColumn = idColumns.get(0);
 
-			String idList = composeCheckPart(data, columnWidth, idMap); 
-			
+			String idList = composeValues(data, columnWidth, idMap, null); 
+			List<Object> dupList;
 			{
 				// TODO Add a switch so we additionally fetch the values in the DB
 				// So we can present the user with the existing values for conflicting entries
 				
 				if(!idList.isEmpty()) {
-					String query = "SELECT " + idColumn + " FROM " + target.getTableName() + " WHERE " + idColumn + " IN (" + idList + ")";
+				    
+					String query = "SELECT " + idColumnsStr + " FROM \"" + target.getTableName() + "\" WHERE " + inColumnsStr + " IN (" + idList + ")";
 					System.out.println("Dup check: " + query);
 					
-					List<Object> dupList = SqlUtils.executeList(conn, query, Object.class);
+					dupList = SqlUtils.executeList(conn, query, Object.class);
 					duplicateIds.addAll(dupList);
 				
 					System.out.println("Dups are: " + duplicateIds);
 				}
 			}
-			
-			// Remove all duplicates from the data
 
-			blacklistedRows = getBlacklistedRows(data, columnWidth, idMap, duplicateIds);
-			data.removeAll(duplicateIds);
+			/*
+	        {
+	            //composeCheckPart(data, columnWidth, idMap); 
+	            String idListStr = Joiner.on(", ").join(dupList) 
+	            String query = "DELETE FROM \"" + target.getTableName() + "\" WHERE \"" + idColumnsStr + "\" IN (" + idList + ")";
+	        }
+	        */
+
+
+			List<Integer> blacklistedRows = getBlacklistedRows(data, columnWidth, idMap, duplicateIds);
+
+			if(blacklistedRows.size() > 0) {
+                String deleteIdList = composeValues(data, columnWidth, idMap, blacklistedRows); 
+    
+                String query = "DELETE FROM \"" + target.getTableName() + "\" WHERE " + inColumnsStr + " IN (" + idList + ")";
+                System.out.println("Delete query: " + query);
+                
+                SqlUtils.execute(conn, query, Void.class);
+			}
+			
 		}
 		
 		
 
-		
-		String valueList = composeInsertPart(data, columnWidth, blacklistedRows); 
+		Set<Integer> skipIndexes = Collections.emptySet();
+		String valueList = composeInsertPart(data, columnWidth, skipIndexes); 
 
 		
 		{
 			if(!valueList.isEmpty()) {
-				String query = "INSERT INTO " + target.getTableName() + " VALUES " + valueList;
+				String query = "INSERT INTO \"" + target.getTableName() + "\" (" + targetColumnsStr + ") VALUES " + valueList;
 				System.out.println("Insert: " + query);
 				SqlUtils.execute(conn, query, Void.class);
 			}
