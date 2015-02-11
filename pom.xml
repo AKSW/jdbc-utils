@@ -5,7 +5,7 @@
     <groupId>org.aksw.jdbc-utils</groupId>
     <artifactId>jdbc-utils-parent</artifactId>
     <packaging>pom</packaging>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.1</version>
     <name>AKSW JDBC Utils - Parent</name>
 
 	<developers>
@@ -30,7 +30,7 @@
         <connection>scm:git:git@github.com:AKSW/jdbc-utils.git</connection>
         <!-- developerConnection></developerConnection -->
         <!-- url>https://my-project.googlecode.com/svn</url -->
-    <tag>HEAD</tag>
+    <tag>jdbc-utils-parent-0.0.1</tag>
   </scm>
 
     <properties>
